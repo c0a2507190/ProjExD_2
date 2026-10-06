@@ -23,7 +23,6 @@ def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
         tate = False
     return yoko, tate
 
-
 def gameover(screen: pg.Surface) -> None:
     black_out = pg.Surface((WIDTH, HEIGHT))
     black_out.set_alpha(180)
