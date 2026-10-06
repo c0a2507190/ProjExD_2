@@ -73,7 +73,7 @@ def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
 
     for r in range(1, 11):
         bb_img = pg.Surface((20 * r, 20 * r))
-        pg.draw.circle(bb_img, (255, 0, 0), (10 * r, 10 * r), 10 * r)  # 拡大描画[cite: 30]
+        pg.draw.circle(bb_img, (255, 0, 0), (10 * r, 10 * r), 10 * r)
         bb_img.set_colorkey((0, 0, 0))
         bb_imgs.append(bb_img)
 
@@ -126,6 +126,17 @@ def calc_orientation(
     return vx, vy
 
 
+def check_dash(key_lst: pg.key.ScancodeWrapper) -> int:
+    """
+    追加機能5: Shiftキー押下時にダッシュ倍率を返す関数[cite: 25, 39]
+    引数 key_lst: pg.key.get_pressed() の戻り値
+    戻り値: ダッシュ時の倍率（Shift押下時: 2, 通常時: 1）
+    """
+    if key_lst[pg.K_LSHIFT] or key_lst[pg.K_RSHIFT]:
+        return 2
+    return 1
+
+
 def main():
     pg.display.set_caption("逃げろ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -161,15 +172,15 @@ def main():
         screen.blit(bg_img, [0, 0])
 
         # 爆弾の拡大・加速・追従移動処理[cite: 30, 32]
-        idx = min(tmr // 500, 9)  # 500フレームごとに拡大・加速（最大10段階）[cite: 30]
+        idx = min(tmr // 500, 9)  # 500フレームごとに拡大・加速[cite: 30]
         vx, vy = calc_orientation(bb_rct, kk_rct, (vx, vy))  # 追従ベクトル算出[cite: 32]
-        avx = vx * bb_accs[idx]  # 加速度の適用[cite: 30]
+        avx = vx * bb_accs[idx]  # 加速度適用[cite: 30]
         avy = vy * bb_accs[idx]
 
         bb_img = bb_imgs[idx]
         center = bb_rct.center
         bb_rct = bb_img.get_rect()
-        bb_rct.center = center  # 中心位置を保ったまま矩形更新[cite: 30]
+        bb_rct.center = center  # 中心座標を維持[cite: 30]
 
         bb_rct.move_ip(avx, avy)
         yoko, tate = check_bound(bb_rct)
@@ -181,19 +192,25 @@ def main():
 
         # こうかとんの移動と向きの切替処理[cite: 21, 31]
         key_lst = pg.key.get_pressed()
+        speed = check_dash(key_lst)  # 追加機能5: ダッシュ倍率取得
+
         sum_mv = [0, 0]
         for key, delta in DELTA.items():
             if key_lst[key]:
-                sum_mv[0] += delta[0]
-                sum_mv[1] += delta[1]
+                sum_mv[0] += delta[0] * speed
+                sum_mv[1] += delta[1] * speed
 
         kk_rct.move_ip(sum_mv)
         yoko, tate = check_bound(kk_rct)
         if not yoko or not tate:
             kk_rct.move_ip(-sum_mv[0], -sum_mv[1])
 
-        # 移動方向に応じた画像へ切替[cite: 31]
-        kk_img = kk_imgs[tuple(sum_mv)]
+        # 画像切り替え用の移動量正規化（速度が2倍になっても対応する画像を引く処理）[cite: 31]
+        norm_mv = (
+            0 if sum_mv[0] == 0 else (sum_mv[0] // abs(sum_mv[0])) * 5,
+            0 if sum_mv[1] == 0 else (sum_mv[1] // abs(sum_mv[1])) * 5,
+        )
+        kk_img = kk_imgs[norm_mv]
         screen.blit(kk_img, kk_rct)
 
         pg.display.update()
